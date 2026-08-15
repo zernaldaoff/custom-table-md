@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Susun tabel Markdown dengan teks dan attachment GitHub secara visual.">
+  <title>Live Table Builder — Table MD</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="builder.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="builder.html" aria-label="Table MD Builder">
+        <span class="brand-mark" aria-hidden="true">|＋|</span>
+        <span>Table MD</span>
+      </a>
+      <nav class="page-nav" aria-label="Navigasi utama">
+        <a href="index.html">Normalizer</a>
+        <a href="builder.html" aria-current="page">Table Builder</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="shell builder-main">
+    <section class="builder-intro" aria-labelledby="builderTitle">
+      <div>
+        <p class="eyebrow">Visual markdown composer</p>
+        <h1 id="builderTitle">Build your table.<br><span>Share the story.</span></h1>
+        <p class="intro-copy">Atur baris dan kolom bebas, tambahkan teks serta beberapa attachment, lalu copy Markdown yang siap digunakan di GitHub Story.</p>
+      </div>
+      <aside class="github-guide">
+        <span class="guide-number">GitHub workflow</span>
+        <p>Drag aset ke draft comment GitHub, salin URL yang dibuat GitHub, lalu tempelkan ke sel. File lokal tetap bisa di-preview sebelum URL tersedia.</p>
+      </aside>
+    </section>
+
+    <section class="builder-card" aria-labelledby="editorTitle">
+      <div class="builder-toolbar">
+        <div>
+          <p class="step">01 · Compose</p>
+          <h2 id="editorTitle">Live table</h2>
+        </div>
+        <div class="toolbar-actions">
+          <button id="addColumnBtn" class="button button-secondary" type="button">＋ Add column</button>
+          <button id="addRowBtn" class="button button-primary" type="button">＋ Add row</button>
+        </div>
+      </div>
+      <div class="table-stage" tabindex="0" aria-label="Editor tabel, dapat digulir horizontal">
+        <div id="tableEditor"></div>
+      </div>
+      <p id="validationSummary" class="validation-summary" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="result-card" aria-labelledby="resultTitle">
+      <div class="result-heading">
+        <div>
+          <p class="step">02 · Export</p>
+          <h2 id="resultTitle">Hasil Normalisasi</h2>
+        </div>
+        <button id="copyBuilderBtn" class="button button-primary" type="button">□ Copy Result</button>
+      </div>
+      <textarea id="builderOutput" aria-label="Markdown hasil live table" spellcheck="false" readonly></textarea>
+      <div class="builder-messages">
+        <p id="builderStatus" class="status" role="status" aria-live="polite"></p>
+        <p id="builderError" class="error" role="alert" hidden></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="shell site-footer">
+    <p>Browser-only utility · Aset lokal tidak pernah diunggah.</p>
+  </footer>
+  <script src="builder.js"></script>
+</body>
+</html>
