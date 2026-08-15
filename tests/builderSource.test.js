@@ -23,6 +23,16 @@ test("keeps per-asset GitHub resolution", () => {
   assert.ok(source.includes('data-action="resolve-asset"'));
 });
 
+test("keeps the removed file picker and drop control absent", () => {
+  const renderCellSource = source.slice(
+    source.indexOf("function renderCell"),
+    source.indexOf("function renderBuilder")
+  );
+  assert.ok(!renderCellSource.includes('data-role="drop-zone"'));
+  assert.ok(!renderCellSource.includes('data-role="file-input"'));
+  assert.ok(!renderCellSource.includes("atau pilih beberapa file"));
+});
+
 let failures = 0;
 tests.forEach(({ name, fn }) => {
   try {

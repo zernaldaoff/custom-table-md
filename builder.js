@@ -313,10 +313,6 @@ if (typeof document !== "undefined") {
     return `
       <section class="cell-card" data-row-id="${row.id}" data-column-id="${column.id}">
         <textarea class="cell-text" data-role="cell-text" data-row-id="${row.id}" data-column-id="${column.id}" aria-label="Isi baris ${builderState.rows.indexOf(row) + 1}, ${escapeHtml(column.label)}" placeholder="Tulis isi sel…">${escapeHtml(cell.text)}</textarea>
-        <label class="cell-drop" data-role="drop-zone">
-          <input class="visually-hidden" type="file" data-role="file-input" accept="image/png,image/gif,image/jpeg,image/svg+xml,video/mp4,video/quicktime,video/webm" multiple>
-          <strong>Drop / paste asset</strong><br>atau pilih beberapa file
-        </label>
         <p class="cell-error" data-role="cell-error" aria-live="polite"></p>
         <div class="asset-list">${renderAssetCards(row.id, column.id, cell.assets)}</div>
       </section>`;
