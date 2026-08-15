@@ -10,7 +10,10 @@ const {
   escapeCellText,
   parseGitHubAsset,
   serializeTable,
-  countUnresolvedAssets
+  countUnresolvedAssets,
+  addAssetsToCell,
+  removeAssetFromCell,
+  resolveLocalAsset
 } = require("../builder.js");
 
 const tests = [];
@@ -102,6 +105,37 @@ test("counts unresolved local assets", () => {
   state.rows[0].cells[state.columns[0].id].assets.push({ sourceType: "local" });
   state.rows[1].cells[state.columns[1].id].assets.push({ sourceType: "local" });
   assert.equal(countUnresolvedAssets(state), 2);
+});
+
+test("adds multiple assets to one cell and preserves their order", () => {
+  const state = createInitialState(ids());
+  const rowId = state.rows[0].id;
+  const columnId = state.columns[0].id;
+  const next = addAssetsToCell(state, rowId, columnId, [
+    { id: "asset-1", sourceType: "github", exportValue: "![one](https://github.com/user-attachments/assets/one)" },
+    { id: "asset-2", sourceType: "local", previewUrl: "blob:two" },
+    { id: "asset-3", sourceType: "github", exportValue: "https://github.com/user-attachments/assets/three" }
+  ]);
+  assert.deepEqual(next.rows[0].cells[columnId].assets.map(asset => asset.id), ["asset-1", "asset-2", "asset-3"]);
+  assert.equal(countUnresolvedAssets(next), 1);
+  const output = serializeTable(next);
+  assert.ok(output.includes("![one](https://github.com/user-attachments/assets/one)<br>https://github.com/user-attachments/assets/three"));
+  assert.ok(!output.includes("blob:two"));
+});
+
+test("resolves a local asset and removes an asset without changing siblings", () => {
+  let state = createInitialState(ids());
+  const rowId = state.rows[0].id;
+  const columnId = state.columns[0].id;
+  state = addAssetsToCell(state, rowId, columnId, [
+    { id: "local-1", kind: "image", sourceType: "local", name: "shot.png", previewUrl: "blob:shot" },
+    { id: "ready-1", kind: "image", sourceType: "github", exportValue: "![ready](https://github.com/user-attachments/assets/ready)" }
+  ]);
+  state = resolveLocalAsset(state, rowId, columnId, "local-1", "![shot](https://github.com/user-attachments/assets/shot)");
+  assert.equal(countUnresolvedAssets(state), 0);
+  assert.equal(state.rows[0].cells[columnId].assets[0].sourceType, "github");
+  state = removeAssetFromCell(state, rowId, columnId, "local-1");
+  assert.deepEqual(state.rows[0].cells[columnId].assets.map(asset => asset.id), ["ready-1"]);
 });
 
 let failures = 0;
