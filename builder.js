@@ -317,11 +317,6 @@ if (typeof document !== "undefined") {
           <input class="visually-hidden" type="file" data-role="file-input" accept="image/png,image/gif,image/jpeg,image/svg+xml,video/mp4,video/quicktime,video/webm" multiple>
           <strong>Drop / paste asset</strong><br>atau pilih beberapa file
         </label>
-        <div class="github-input-row">
-          <input class="github-input" data-role="github-input" aria-label="Markdown atau URL GitHub attachment" placeholder="Paste GitHub URL / Markdown…">
-          <select class="asset-kind" data-role="asset-kind" aria-label="Jenis attachment"><option value="image">Image</option><option value="video">Video</option></select>
-          <button class="mini-button" type="button" data-action="add-github-asset" data-row-id="${row.id}" data-column-id="${column.id}">Add</button>
-        </div>
         <p class="cell-error" data-role="cell-error" aria-live="polite"></p>
         <div class="asset-list">${renderAssetCards(row.id, column.id, cell.assets)}</div>
       </section>`;
@@ -415,22 +410,6 @@ if (typeof document !== "undefined") {
     if (!button) return;
     const action = button.dataset.action;
     const targetId = button.dataset.targetId;
-
-    if (action === "add-github-asset") {
-      const card = button.closest(".cell-card");
-      const input = card.querySelector('[data-role="github-input"]');
-      const hint = card.querySelector('[data-role="asset-kind"]').value;
-      const parsed = parseGitHubAsset(input.value, hint);
-      if (!parsed.ok) {
-        showCellError(card, parsed.error);
-        input.focus();
-        return;
-      }
-      builderState = addAssetsToCell(builderState, button.dataset.rowId, button.dataset.columnId, [parsed.asset]);
-      renderBuilder();
-      builderStatus.textContent = "GitHub attachment ditambahkan.";
-      return;
-    }
 
     if (action === "resolve-asset") {
       const card = button.closest(".cell-card");

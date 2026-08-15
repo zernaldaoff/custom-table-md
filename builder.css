@@ -31,9 +31,7 @@
 .cell-drop { margin-top: 9px; padding: 13px; border: 1.5px dashed #a9bbb1; border-radius: 10px; color: var(--muted); background: #f7faf8; text-align: center; font-size: 12px; cursor: pointer; }
 .cell-drop.is-dragging { border-color: var(--green); color: var(--green); background: var(--mint); }
 .cell-drop strong { color: var(--green); }
-.github-input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; margin-top: 9px; }
-.github-input, .resolve-input { min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
-.asset-kind { padding: 0 7px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: white; font-size: 11px; }
+.resolve-input { min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
 .mini-button { padding: 8px 10px; border: 0; border-radius: 8px; color: white; background: var(--green); font-size: 11px; font-weight: 800; cursor: pointer; }
 .cell-error { min-height: 17px; margin: 6px 0 0; color: var(--red); font-size: 11px; }
 
@@ -63,6 +61,4 @@
   .toolbar-actions .button, .result-heading .button { flex: 1; width: 100%; }
   .table-stage { padding: 11px; }
   .column-card, .cell-card { min-width: 230px; }
-  .github-input-row { grid-template-columns: 1fr auto; }
-  .asset-kind { grid-row: 2; grid-column: 1 / -1; min-height: 34px; }
 }
