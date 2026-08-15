@@ -6,7 +6,7 @@
 
 **Architecture:** Keep the site dependency-free in the existing HTML, CSS, and JavaScript files. Keep `normalizeMarkdownTableRows(markdown, columns)` pure and CommonJS-exportable for Node tests, while DOM initialization is guarded so the same script runs safely in both browser and test environments.
 
-**Tech Stack:** Semantic HTML5, CSS Grid/Flexbox, vanilla JavaScript, Node.js built-in test runner.
+**Tech Stack:** Semantic HTML5, CSS Grid/Flexbox, vanilla JavaScript, Node.js 12-compatible `assert` test script.
 
 ---
 
@@ -35,7 +35,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 - [ ] **Step 2: Write focused tests for the required behavior**
 
-Use `node:test` and `node:assert/strict` to assert:
+Use a tiny runner around Node's `assert.strict` to assert:
 
 ```js
 assert.equal(normalizeMarkdownTableRows("Before\nAfter", 4), "Before\nAfter");
@@ -54,11 +54,11 @@ assert.equal(normalizeMarkdownTableRows("| unfinished", 4), "| unfinished");
 
 - [ ] **Step 3: Prove the tests detect missing behavior**
 
-Temporarily change the function body to `return markdown;`, run `node --test tests/normalizeMarkdownTableRows.test.js`, and expect failures for multiline rows. Restore the implementation afterward.
+Before adding the function, run `node tests/normalizeMarkdownTableRows.test.js` and expect failure because the normalizer is not exported yet.
 
 - [ ] **Step 4: Run the normalizer suite**
 
-Run `node --test tests/normalizeMarkdownTableRows.test.js` and expect all tests to pass with zero failures.
+Run `node tests/normalizeMarkdownTableRows.test.js` and expect all tests to pass with zero failures.
 
 - [ ] **Step 5: Commit the tested normalizer**
 
@@ -131,7 +131,7 @@ Prefer `navigator.clipboard.writeText(outputEl.value)`. If unavailable, focus/se
 
 - [ ] **Step 6: Run regression tests**
 
-Run `node --test tests/normalizeMarkdownTableRows.test.js` and expect all tests to pass with zero failures.
+Run `node tests/normalizeMarkdownTableRows.test.js` and expect all tests to pass with zero failures.
 
 - [ ] **Step 7: Commit the interactions**
 
@@ -163,7 +163,7 @@ Confirm Escape and backdrop close the modal, focus returns to Normalize, keyboar
 
 - [ ] **Step 5: Run final automated verification**
 
-Run `node --test tests/normalizeMarkdownTableRows.test.js` and the static structure check from Task 2. Both commands must exit 0.
+Run `node tests/normalizeMarkdownTableRows.test.js` and the static structure check from Task 2. Both commands must exit 0.
 
 - [ ] **Step 6: Review the final diff and commit verification fixes if any**
 
