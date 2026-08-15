@@ -62,9 +62,15 @@
         <p id="statusBox" class="status" role="status" aria-live="polite"></p>
         <p id="errorBox" class="error" role="alert" hidden></p>
       </div>
-      <button id="normalizeBtn" class="button button-primary" type="button">
-        Normalize Table <span aria-hidden="true">→</span>
-      </button>
+      <div class="action-buttons">
+        <div class="history-actions" aria-label="Riwayat perubahan">
+          <button id="undoBtn" class="button history-button" type="button" aria-label="Undo perubahan terakhir" title="Undo (Ctrl/Cmd+Z)" disabled>↶ Undo</button>
+          <button id="redoBtn" class="button history-button" type="button" aria-label="Redo perubahan terakhir" title="Redo (Ctrl/Cmd+Shift+Z)" disabled>↷ Redo</button>
+        </div>
+        <button id="normalizeBtn" class="button button-primary" type="button">
+          Normalize Table <span aria-hidden="true">→</span>
+        </button>
+      </div>
     </div>
   </main>
 
@@ -94,6 +100,7 @@
     </section>
   </div>
 
+  <script src="history.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

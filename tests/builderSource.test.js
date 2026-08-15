@@ -3,6 +3,8 @@ const fs = require("fs");
 const path = require("path");
 
 const source = fs.readFileSync(path.join(__dirname, "..", "builder.js"), "utf8");
+const normalizerHtml = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const normalizerSource = fs.readFileSync(path.join(__dirname, "..", "script.js"), "utf8");
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
 
@@ -31,6 +33,14 @@ test("keeps the removed file picker and drop control absent", () => {
   assert.ok(!renderCellSource.includes('data-role="drop-zone"'));
   assert.ok(!renderCellSource.includes('data-role="file-input"'));
   assert.ok(!renderCellSource.includes("atau pilih beberapa file"));
+});
+
+test("wires shared history controls into the Normalizer", () => {
+  assert.ok(normalizerHtml.includes('id="undoBtn"'));
+  assert.ok(normalizerHtml.includes('id="redoBtn"'));
+  assert.ok(normalizerHtml.indexOf('src="history.js"') < normalizerHtml.indexOf('src="script.js"'));
+  assert.ok(normalizerSource.includes("createHistory("));
+  assert.ok(normalizerSource.includes("getHistoryShortcut("));
 });
 
 let failures = 0;
