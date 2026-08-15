@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Rapikan baris tabel Markdown sesuai jumlah kolom pilihan Anda.">
+  <title>Table MD — Markdown Table Normalizer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="#workspace" aria-label="Table MD, kembali ke area kerja">
+        <span class="brand-mark" aria-hidden="true">|—|</span>
+        <span>Table MD</span>
+      </a>
+      <p class="privacy-note"><span aria-hidden="true">●</span> Diproses lokal di browser</p>
+    </div>
+  </header>
+
+  <main class="shell" id="workspace">
+    <section class="intro" aria-labelledby="pageTitle">
+      <p class="eyebrow">Markdown utility</p>
+      <h1 id="pageTitle">Rapikan tabel Markdown<br><span>tanpa ribet.</span></h1>
+      <p class="intro-copy">Unggah file atau tempel teks Markdown. Pilih jumlah kolom, lalu satukan baris tabel yang terpecah secara otomatis.</p>
+    </section>
+
+    <section class="workspace" aria-label="Markdown table normalizer">
+      <div class="panel input-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="step">01</p>
+            <h2>Markdown input</h2>
+          </div>
+          <label class="file-button" for="fileInput">
+            <span aria-hidden="true">↑</span> Upload .md
+          </label>
+          <input id="fileInput" class="visually-hidden" type="file" accept=".md,text/markdown,text/plain">
+        </div>
+        <textarea id="input" spellcheck="false" aria-label="Markdown input" placeholder="Tempel Markdown di sini…&#10;&#10;| Produk | Status&#10;| Harga | Catatan |"></textarea>
+      </div>
+
+      <div class="panel output-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="step">02</p>
+            <h2>Hasil normalisasi</h2>
+          </div>
+          <button id="copyBtn" class="button button-quiet" type="button" disabled>
+            <span aria-hidden="true">□</span> Copy Result
+          </button>
+        </div>
+        <textarea id="output" spellcheck="false" aria-label="Normalized Markdown output" placeholder="Hasil akan tampil di sini…" readonly></textarea>
+      </div>
+    </section>
+
+    <div class="action-row">
+      <div class="messages">
+        <p id="statusBox" class="status" role="status" aria-live="polite"></p>
+        <p id="errorBox" class="error" role="alert" hidden></p>
+      </div>
+      <button id="normalizeBtn" class="button button-primary" type="button">
+        Normalize Table <span aria-hidden="true">→</span>
+      </button>
+    </div>
+  </main>
+
+  <footer class="shell site-footer">
+    <p>Browser-only utility · Data Anda tidak pernah diunggah.</p>
+  </footer>
+
+  <div id="columnModal" class="modal" hidden>
+    <div class="modal-backdrop" data-modal-close></div>
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDescription">
+      <button id="closeModalBtn" class="modal-close" type="button" aria-label="Tutup modal">×</button>
+      <p class="step">Custom setting</p>
+      <h2 id="modalTitle">Berapa jumlah kolom?</h2>
+      <p id="modalDescription">Masukkan jumlah kolom pada tabel Markdown Anda.</p>
+      <form id="columnForm" novalidate>
+        <label for="columnCount">Jumlah kolom</label>
+        <input id="columnCount" name="columns" type="number" min="1" step="1" value="4" inputmode="numeric" required>
+        <p id="columnError" class="field-error" role="alert" hidden></p>
+        <div class="modal-actions">
+          <button id="cancelModalBtn" class="button button-secondary" type="button">Batal</button>
+          <button id="processBtn" class="button button-primary" type="submit">
+            <span id="loader" class="loader" hidden aria-hidden="true"></span>
+            Proses Markdown
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
