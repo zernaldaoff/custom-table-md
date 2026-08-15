@@ -5,6 +5,7 @@ const path = require("path");
 const source = fs.readFileSync(path.join(__dirname, "..", "builder.js"), "utf8");
 const normalizerHtml = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const normalizerSource = fs.readFileSync(path.join(__dirname, "..", "script.js"), "utf8");
+const builderHtml = fs.readFileSync(path.join(__dirname, "..", "builder.html"), "utf8");
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
 
@@ -41,6 +42,14 @@ test("wires shared history controls into the Normalizer", () => {
   assert.ok(normalizerHtml.indexOf('src="history.js"') < normalizerHtml.indexOf('src="script.js"'));
   assert.ok(normalizerSource.includes("createHistory("));
   assert.ok(normalizerSource.includes("getHistoryShortcut("));
+});
+
+test("wires shared history controls into the Table Builder", () => {
+  assert.ok(builderHtml.includes('id="builderUndoBtn"'));
+  assert.ok(builderHtml.includes('id="builderRedoBtn"'));
+  assert.ok(builderHtml.indexOf('src="history.js"') < builderHtml.indexOf('src="builder.js"'));
+  assert.ok(source.includes("createHistory("));
+  assert.ok(source.includes("getHistoryShortcut("));
 });
 
 let failures = 0;

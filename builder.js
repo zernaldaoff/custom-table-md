@@ -222,6 +222,12 @@ if (typeof document !== "undefined") {
   const validationSummary = document.getElementById("validationSummary");
   const builderStatus = document.getElementById("builderStatus");
   const builderError = document.getElementById("builderError");
+  const builderUndoBtn = document.getElementById("builderUndoBtn");
+  const builderRedoBtn = document.getElementById("builderRedoBtn");
+  const objectUrlReferences = new Map();
+  let builderTypingTimer;
+  let builderTypingActive = false;
+  let builderHistory;
 
   function escapeHtml(value) {
     return String(value || "")
@@ -261,6 +267,92 @@ if (typeof document !== "undefined") {
   function revokeRowAssets(row) {
     Object.values(row.cells).forEach(cell => localAssetsInCell(cell).forEach(revokeAsset));
   }
+
+  function objectUrlsInState(state) {
+    const urls = new Set();
+    state.rows.forEach(row => {
+      Object.values(row.cells).forEach(cell => {
+        localAssetsInCell(cell).forEach(asset => urls.add(asset.previewUrl));
+      });
+    });
+    return urls;
+  }
+
+  function retainStateUrls(state) {
+    objectUrlsInState(state).forEach(url => {
+      objectUrlReferences.set(url, (objectUrlReferences.get(url) || 0) + 1);
+    });
+  }
+
+  function discardStateUrls(state) {
+    if (!state) return;
+    objectUrlsInState(state).forEach(url => {
+      const nextCount = (objectUrlReferences.get(url) || 1) - 1;
+      if (nextCount <= 0) {
+        objectUrlReferences.delete(url);
+        URL.revokeObjectURL(url);
+      } else {
+        objectUrlReferences.set(url, nextCount);
+      }
+    });
+  }
+
+  function statesEqual(left, right) {
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+
+  retainStateUrls(builderState);
+  builderHistory = createHistory(builderState, {
+    limit: 50,
+    onDiscard: discardStateUrls
+  });
+
+  function endBuilderTyping() {
+    window.clearTimeout(builderTypingTimer);
+    builderTypingActive = false;
+  }
+
+  function acceptHistoryState(nextState, replace = false) {
+    if (statesEqual(builderHistory.getState(), nextState)) return builderHistory.getState();
+    retainStateUrls(nextState);
+    return replace ? builderHistory.replace(nextState) : builderHistory.commit(nextState);
+  }
+
+  function applyBuilderState(nextState) {
+    endBuilderTyping();
+    builderState = acceptHistoryState(nextState);
+    renderBuilder();
+  }
+
+  function recordBuilderTyping() {
+    builderState = acceptHistoryState(builderState, builderTypingActive);
+    builderTypingActive = true;
+    window.clearTimeout(builderTypingTimer);
+    builderTypingTimer = window.setTimeout(endBuilderTyping, 300);
+  }
+
+  function restoreBuilderState(state, message) {
+    if (!state) return;
+    builderState = state;
+    renderBuilder();
+    showBuilderError("");
+    builderStatus.textContent = message;
+  }
+
+  function undoBuilder() {
+    endBuilderTyping();
+    restoreBuilderState(builderHistory.undo(), "Perubahan dibatalkan.");
+  }
+
+  function redoBuilder() {
+    endBuilderTyping();
+    restoreBuilderState(builderHistory.redo(), "Perubahan diterapkan kembali.");
+  }
+
+  builderHistory.subscribe(function (info) {
+    builderUndoBtn.disabled = !info.canUndo;
+    builderRedoBtn.disabled = !info.canRedo;
+  });
 
   function showCellError(card, message) {
     const error = card && card.querySelector('[data-role="cell-error"]');
@@ -369,8 +461,7 @@ if (typeof document !== "undefined") {
       });
     });
     if (accepted.length) {
-      builderState = addAssetsToCell(builderState, rowId, columnId, accepted);
-      renderBuilder();
+      applyBuilderState(addAssetsToCell(builderState, rowId, columnId, accepted));
     }
     if (rejected.length) {
       const nextCard = tableEditor.querySelector(`[data-row-id="${rowId}"][data-column-id="${columnId}"]`);
@@ -379,14 +470,15 @@ if (typeof document !== "undefined") {
   }
 
   addColumnBtn.addEventListener("click", function () {
-    builderState = addColumn(builderState);
-    renderBuilder();
+    applyBuilderState(addColumn(builderState));
   });
 
   addRowBtn.addEventListener("click", function () {
-    builderState = addRow(builderState);
-    renderBuilder();
+    applyBuilderState(addRow(builderState));
   });
+
+  builderUndoBtn.addEventListener("click", undoBuilder);
+  builderRedoBtn.addEventListener("click", redoBuilder);
 
   tableEditor.addEventListener("input", function (event) {
     const role = event.target.dataset.role;
@@ -394,10 +486,18 @@ if (typeof document !== "undefined") {
       const cell = cellFor(event.target.dataset.rowId, event.target.dataset.columnId);
       if (cell) cell.text = event.target.value;
       updateOutput();
+      recordBuilderTyping();
     } else if (role === "column-name") {
       const column = builderState.columns.find(item => item.id === event.target.dataset.columnId);
       if (column) column.label = event.target.value;
       updateOutput();
+      recordBuilderTyping();
+    }
+  });
+
+  tableEditor.addEventListener("focusout", function (event) {
+    if (event.target.dataset.role === "cell-text" || event.target.dataset.role === "column-name") {
+      endBuilderTyping();
     }
   });
 
@@ -418,42 +518,33 @@ if (typeof document !== "undefined") {
         input.focus();
         return;
       }
-      revokeAsset(current);
-      builderState = resolveLocalAsset(builderState, button.dataset.rowId, button.dataset.columnId, button.dataset.assetId, input.value);
-      renderBuilder();
+      applyBuilderState(resolveLocalAsset(builderState, button.dataset.rowId, button.dataset.columnId, button.dataset.assetId, input.value));
       builderStatus.textContent = "Aset lokal berhasil dihubungkan ke GitHub.";
       return;
     }
 
     if (action === "remove-asset") {
-      const current = cellFor(button.dataset.rowId, button.dataset.columnId).assets.find(asset => asset.id === button.dataset.assetId);
-      revokeAsset(current);
-      builderState = removeAssetFromCell(builderState, button.dataset.rowId, button.dataset.columnId, button.dataset.assetId);
-      renderBuilder();
+      applyBuilderState(removeAssetFromCell(builderState, button.dataset.rowId, button.dataset.columnId, button.dataset.assetId));
       return;
     }
 
-    if (action === "move-column-left") builderState = moveColumn(builderState, targetId, -1);
-    if (action === "move-column-right") builderState = moveColumn(builderState, targetId, 1);
-    if (action === "move-row-up") builderState = moveRow(builderState, targetId, -1);
-    if (action === "move-row-down") builderState = moveRow(builderState, targetId, 1);
+    let nextState = builderState;
+    if (action === "move-column-left") nextState = moveColumn(builderState, targetId, -1);
+    if (action === "move-column-right") nextState = moveColumn(builderState, targetId, 1);
+    if (action === "move-row-up") nextState = moveRow(builderState, targetId, -1);
+    if (action === "move-row-down") nextState = moveRow(builderState, targetId, 1);
     if (action === "remove-column") {
       if (columnHasContent(targetId) && !window.confirm("Kolom ini berisi konten. Tetap hapus?")) return;
-      builderState.rows.forEach(row => {
-        const cell = row.cells[targetId];
-        if (cell) localAssetsInCell(cell).forEach(revokeAsset);
-      });
-      builderState = removeColumn(builderState, targetId);
+      nextState = removeColumn(builderState, targetId);
     }
     if (action === "remove-row") {
       const row = builderState.rows.find(item => item.id === targetId);
       if (row && rowHasContent(row) && !window.confirm("Baris ini berisi konten. Tetap hapus?")) return;
-      if (row) revokeRowAssets(row);
-      builderState = removeRow(builderState, targetId);
+      nextState = removeRow(builderState, targetId);
     }
 
     if (["move-column-left", "move-column-right", "move-row-up", "move-row-down", "remove-column", "remove-row"].includes(action)) {
-      renderBuilder();
+      applyBuilderState(nextState);
     }
   });
 
@@ -513,8 +604,22 @@ if (typeof document !== "undefined") {
     }
   });
 
+  document.addEventListener("keydown", function (event) {
+    const shortcut = getHistoryShortcut(event);
+    if (shortcut === "undo" && builderHistory.canUndo()) {
+      event.preventDefault();
+      undoBuilder();
+    } else if (shortcut === "redo" && builderHistory.canRedo()) {
+      event.preventDefault();
+      redoBuilder();
+    }
+  });
+
   window.addEventListener("beforeunload", function () {
-    builderState.rows.forEach(revokeRowAssets);
+    endBuilderTyping();
+    builderHistory.dispose();
+    objectUrlReferences.forEach((count, url) => URL.revokeObjectURL(url));
+    objectUrlReferences.clear();
   });
 
   renderBuilder();

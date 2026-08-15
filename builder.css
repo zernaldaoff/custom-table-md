@@ -9,7 +9,7 @@
 .builder-toolbar, .result-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 22px; border-bottom: 1px solid var(--line); }
 .builder-toolbar { position: sticky; top: 0; z-index: 4; background: rgba(255,253,247,.94); backdrop-filter: blur(12px); }
 .builder-toolbar h2, .result-heading h2 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 26px; }
-.toolbar-actions { display: flex; gap: 9px; }
+.builder-toolbar-actions, .toolbar-actions { display: flex; align-items: center; gap: 9px; }
 .table-stage { overflow: auto; padding: 18px; background: #efede5; }
 #tableEditor { min-width: max-content; }
 
@@ -57,6 +57,7 @@
 @media (max-width: 760px) {
   .builder-intro { grid-template-columns: 1fr; gap: 22px; padding-top: 42px; }
   .builder-toolbar, .result-heading { align-items: flex-start; flex-direction: column; }
+  .builder-toolbar-actions { width: 100%; align-items: stretch; flex-direction: column; }
   .toolbar-actions { width: 100%; }
   .toolbar-actions .button, .result-heading .button { flex: 1; width: 100%; }
   .table-stage { padding: 11px; }

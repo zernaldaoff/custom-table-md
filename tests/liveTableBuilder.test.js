@@ -1,4 +1,5 @@
 const assert = require("assert").strict;
+const { createHistory } = require("../history.js");
 const {
   createInitialState,
   addColumn,
@@ -136,6 +137,28 @@ test("resolves a local asset and removes an asset without changing siblings", ()
   assert.equal(state.rows[0].cells[columnId].assets[0].sourceType, "github");
   state = removeAssetFromCell(state, rowId, columnId, "local-1");
   assert.deepEqual(state.rows[0].cells[columnId].assets.map(asset => asset.id), ["ready-1"]);
+});
+
+test("round-trips table structure, text, and assets through history", () => {
+  const makeId = ids();
+  const initial = createInitialState(makeId);
+  const history = createHistory(initial);
+  const withColumn = addColumn(initial, "Evidence", makeId);
+  history.commit(withColumn);
+  const rowId = withColumn.rows[0].id;
+  const columnId = withColumn.columns[0].id;
+  const edited = addAssetsToCell(withColumn, rowId, columnId, [
+    { id: "asset-history", sourceType: "local", kind: "image", previewUrl: "blob:history" }
+  ]);
+  edited.rows[0].cells[columnId].text = "Changed";
+  history.commit(edited);
+  assert.equal(history.undo().columns.length, 4);
+  assert.equal(history.undo().columns.length, 3);
+  const redoneColumn = history.redo();
+  assert.equal(redoneColumn.columns[3].label, "Evidence");
+  const redoneEdit = history.redo();
+  assert.equal(redoneEdit.rows[0].cells[columnId].text, "Changed");
+  assert.equal(redoneEdit.rows[0].cells[columnId].assets[0].id, "asset-history");
 });
 
 let failures = 0;

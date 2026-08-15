@@ -41,9 +41,15 @@
           <p class="step">01 · Compose</p>
           <h2 id="editorTitle">Live table</h2>
         </div>
-        <div class="toolbar-actions">
-          <button id="addColumnBtn" class="button button-secondary" type="button">＋ Add column</button>
-          <button id="addRowBtn" class="button button-primary" type="button">＋ Add row</button>
+        <div class="builder-toolbar-actions">
+          <div class="history-actions" aria-label="Riwayat perubahan tabel">
+            <button id="builderUndoBtn" class="button history-button" type="button" aria-label="Undo perubahan tabel" title="Undo (Ctrl/Cmd+Z)" disabled>↶ Undo</button>
+            <button id="builderRedoBtn" class="button history-button" type="button" aria-label="Redo perubahan tabel" title="Redo (Ctrl/Cmd+Shift+Z)" disabled>↷ Redo</button>
+          </div>
+          <div class="toolbar-actions">
+            <button id="addColumnBtn" class="button button-secondary" type="button">＋ Add column</button>
+            <button id="addRowBtn" class="button button-primary" type="button">＋ Add row</button>
+          </div>
         </div>
       </div>
       <div class="table-stage" tabindex="0" aria-label="Editor tabel, dapat digulir horizontal">
@@ -71,6 +77,7 @@
   <footer class="shell site-footer">
     <p>Browser-only utility · Aset lokal tidak pernah diunggah.</p>
   </footer>
+  <script src="history.js"></script>
   <script src="builder.js"></script>
 </body>
 </html>
