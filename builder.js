@@ -179,3 +179,178 @@ if (typeof module !== "undefined" && module.exports) {
     countUnresolvedAssets
   };
 }
+
+if (typeof document !== "undefined") {
+  let builderState = createInitialState();
+  const tableEditor = document.getElementById("tableEditor");
+  const addColumnBtn = document.getElementById("addColumnBtn");
+  const addRowBtn = document.getElementById("addRowBtn");
+  const builderOutput = document.getElementById("builderOutput");
+  const copyBuilderBtn = document.getElementById("copyBuilderBtn");
+  const validationSummary = document.getElementById("validationSummary");
+  const builderStatus = document.getElementById("builderStatus");
+  const builderError = document.getElementById("builderError");
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function cellFor(rowId, columnId) {
+    const row = builderState.rows.find(item => item.id === rowId);
+    return row && row.cells[columnId];
+  }
+
+  function rowHasContent(row) {
+    return Object.values(row.cells).some(cell => cell.text.trim() || cell.assets.length);
+  }
+
+  function columnHasContent(columnId) {
+    return builderState.rows.some(row => {
+      const cell = row.cells[columnId];
+      return cell && (cell.text.trim() || cell.assets.length);
+    });
+  }
+
+  function showBuilderError(message) {
+    builderError.textContent = message;
+    builderError.hidden = !message;
+    if (message) builderStatus.textContent = "";
+  }
+
+  function updateOutput() {
+    const unresolved = countUnresolvedAssets(builderState);
+    builderOutput.value = serializeTable(builderState);
+    copyBuilderBtn.disabled = unresolved > 0 || builderState.columns.length === 0;
+    validationSummary.classList.toggle("has-warning", unresolved > 0);
+    validationSummary.textContent = unresolved
+      ? `${unresolved} aset lokal masih membutuhkan URL GitHub sebelum hasil dapat disalin.`
+      : "Semua aset siap diekspor ke GitHub.";
+  }
+
+  function actionButton(action, targetId, label, symbol, disabled = false) {
+    return `<button class="icon-button${action === "remove-column" || action === "remove-row" ? " danger" : ""}" type="button" data-action="${action}" data-target-id="${targetId}" aria-label="${label}"${disabled ? " disabled" : ""}>${symbol}</button>`;
+  }
+
+  function renderAssetCards(rowId, columnId, assets) {
+    return assets.map(asset => `
+      <article class="asset-card" data-asset-id="${asset.id}">
+        <div class="asset-preview">
+          ${asset.kind === "video"
+            ? `<video src="${escapeHtml(asset.previewUrl)}" muted></video>`
+            : `<img src="${escapeHtml(asset.previewUrl)}" alt="">`}
+        </div>
+        <div class="asset-meta">
+          <p class="asset-name" title="${escapeHtml(asset.name)}">${escapeHtml(asset.name)}</p>
+          <span class="asset-badge${asset.sourceType === "local" ? " unresolved" : ""}">${asset.sourceType === "local" ? "Needs GitHub URL" : "Ready"}</span>
+          ${asset.sourceType === "local" ? `
+            <div class="resolve-row">
+              <input class="resolve-input" data-role="resolve-input" aria-label="URL GitHub untuk ${escapeHtml(asset.name)}" placeholder="Paste URL GitHub…">
+              <button class="mini-button" type="button" data-action="resolve-asset" data-row-id="${rowId}" data-column-id="${columnId}" data-asset-id="${asset.id}">Resolve</button>
+            </div>` : ""}
+        </div>
+        <button class="icon-button danger asset-remove" type="button" data-action="remove-asset" data-row-id="${rowId}" data-column-id="${columnId}" data-asset-id="${asset.id}" aria-label="Hapus ${escapeHtml(asset.name)}">×</button>
+      </article>`).join("");
+  }
+
+  function renderCell(row, column) {
+    const cell = row.cells[column.id];
+    return `
+      <section class="cell-card" data-row-id="${row.id}" data-column-id="${column.id}">
+        <textarea class="cell-text" data-role="cell-text" data-row-id="${row.id}" data-column-id="${column.id}" aria-label="Isi baris ${builderState.rows.indexOf(row) + 1}, ${escapeHtml(column.label)}" placeholder="Tulis isi sel…">${escapeHtml(cell.text)}</textarea>
+        <label class="cell-drop" data-role="drop-zone">
+          <input class="visually-hidden" type="file" data-role="file-input" accept="image/png,image/gif,image/jpeg,image/svg+xml,video/mp4,video/quicktime,video/webm" multiple>
+          <strong>Drop / paste asset</strong><br>atau pilih beberapa file
+        </label>
+        <div class="github-input-row">
+          <input class="github-input" data-role="github-input" aria-label="Markdown atau URL GitHub attachment" placeholder="Paste GitHub URL / Markdown…">
+          <select class="asset-kind" data-role="asset-kind" aria-label="Jenis attachment"><option value="image">Image</option><option value="video">Video</option></select>
+          <button class="mini-button" type="button" data-action="add-github-asset" data-row-id="${row.id}" data-column-id="${column.id}">Add</button>
+        </div>
+        <p class="cell-error" data-role="cell-error" aria-live="polite"></p>
+        <div class="asset-list">${renderAssetCards(row.id, column.id, cell.assets)}</div>
+      </section>`;
+  }
+
+  function renderBuilder() {
+    const columns = builderState.columns;
+    let markup = `<div class="live-grid" style="grid-template-columns: 52px repeat(${columns.length}, minmax(260px, 1fr))">`;
+    markup += '<div class="corner-card" aria-hidden="true"></div>';
+    columns.forEach((column, index) => {
+      markup += `
+        <section class="column-card">
+          <div class="column-controls">
+            ${actionButton("move-column-left", column.id, `Geser ${escapeHtml(column.label)} ke kiri`, "←", index === 0)}
+            ${actionButton("move-column-right", column.id, `Geser ${escapeHtml(column.label)} ke kanan`, "→", index === columns.length - 1)}
+            ${actionButton("remove-column", column.id, `Hapus ${escapeHtml(column.label)}`, "×", columns.length === 1)}
+          </div>
+          <input class="column-name" data-role="column-name" data-column-id="${column.id}" aria-label="Nama kolom ${index + 1}" value="${escapeHtml(column.label)}">
+        </section>`;
+    });
+    builderState.rows.forEach((row, rowIndex) => {
+      markup += `<aside class="row-actions"><div class="row-controls">
+        ${actionButton("move-row-up", row.id, `Geser baris ${rowIndex + 1} ke atas`, "↑", rowIndex === 0)}
+        ${actionButton("move-row-down", row.id, `Geser baris ${rowIndex + 1} ke bawah`, "↓", rowIndex === builderState.rows.length - 1)}
+        ${actionButton("remove-row", row.id, `Hapus baris ${rowIndex + 1}`, "×")}
+      </div></aside>`;
+      columns.forEach(column => { markup += renderCell(row, column); });
+    });
+    markup += "</div>";
+    tableEditor.innerHTML = markup;
+    updateOutput();
+  }
+
+  addColumnBtn.addEventListener("click", function () {
+    builderState = addColumn(builderState);
+    renderBuilder();
+  });
+
+  addRowBtn.addEventListener("click", function () {
+    builderState = addRow(builderState);
+    renderBuilder();
+  });
+
+  tableEditor.addEventListener("input", function (event) {
+    const role = event.target.dataset.role;
+    if (role === "cell-text") {
+      const cell = cellFor(event.target.dataset.rowId, event.target.dataset.columnId);
+      if (cell) cell.text = event.target.value;
+      updateOutput();
+    } else if (role === "column-name") {
+      const column = builderState.columns.find(item => item.id === event.target.dataset.columnId);
+      if (column) column.label = event.target.value;
+      updateOutput();
+    }
+  });
+
+  tableEditor.addEventListener("click", function (event) {
+    const button = event.target.closest("[data-action]");
+    if (!button) return;
+    const action = button.dataset.action;
+    const targetId = button.dataset.targetId;
+
+    if (action === "move-column-left") builderState = moveColumn(builderState, targetId, -1);
+    if (action === "move-column-right") builderState = moveColumn(builderState, targetId, 1);
+    if (action === "move-row-up") builderState = moveRow(builderState, targetId, -1);
+    if (action === "move-row-down") builderState = moveRow(builderState, targetId, 1);
+    if (action === "remove-column") {
+      if (columnHasContent(targetId) && !window.confirm("Kolom ini berisi konten. Tetap hapus?")) return;
+      builderState = removeColumn(builderState, targetId);
+    }
+    if (action === "remove-row") {
+      const row = builderState.rows.find(item => item.id === targetId);
+      if (row && rowHasContent(row) && !window.confirm("Baris ini berisi konten. Tetap hapus?")) return;
+      builderState = removeRow(builderState, targetId);
+    }
+
+    if (["move-column-left", "move-column-right", "move-row-up", "move-row-down", "remove-column", "remove-row"].includes(action)) {
+      renderBuilder();
+    }
+  });
+
+  renderBuilder();
+}
