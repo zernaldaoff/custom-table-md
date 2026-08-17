@@ -138,6 +138,26 @@ function parseGitHubAsset(input, hint = "") {
   };
 }
 
+function extractGitHubAssets(input) {
+  const value = String(input || "");
+  const attachmentMarkupPattern = /<img\b[^>]*\bsrc=["']https:\/\/github\.com\/user-attachments\/assets\/[A-Za-z0-9-]+(?:[?#][^"']*)?["'][^>]*\/?>|!\[[^\]]*\]\(https:\/\/github\.com\/user-attachments\/assets\/[A-Za-z0-9-]+(?:[?#][^)\s]*)?\)|https:\/\/github\.com\/user-attachments\/assets\/[A-Za-z0-9-]+(?:[?#][^\s"')>]*)?/gi;
+  const assets = [];
+  const remainingText = value
+    .replace(attachmentMarkupPattern, function (markup) {
+      const isImageMarkup = /^<img\b/i.test(markup) || /^!\[/i.test(markup);
+      const parsed = parseGitHubAsset(markup, isImageMarkup ? "image" : "video");
+      if (!parsed.ok) return markup;
+      assets.push(parsed.asset);
+      return "";
+    })
+    .split(/\r\n|\n|\r/)
+    .filter(line => line.trim())
+    .join("\n")
+    .trim();
+
+  return { assets, remainingText };
+}
+
 function countUnresolvedAssets(state) {
   return state.rows.reduce((total, row) => total +
     Object.values(row.cells).reduce((cellTotal, cell) =>
@@ -149,6 +169,26 @@ function addAssetsToCell(state, rowId, columnId, assets) {
   const row = next.rows.find(item => item.id === rowId);
   if (!row || !row.cells[columnId]) return state;
   row.cells[columnId].assets.push(...assets.map(asset => ({ ...asset })));
+  return next;
+}
+
+function addGithubAssetsToCell(state, rowId, columnId, assets) {
+  const next = cloneState(state);
+  const row = next.rows.find(item => item.id === rowId);
+  const cell = row && row.cells[columnId];
+  if (!cell) return state;
+  const unresolved = cell.assets.filter(asset => asset.sourceType === "local");
+
+  assets.forEach((asset, index) => {
+    const localAsset = unresolved[index];
+    if (!localAsset) {
+      cell.assets.push({ ...asset });
+      return;
+    }
+    localAsset.sourceType = "github";
+    localAsset.exportValue = asset.exportValue;
+    localAsset.githubUrl = asset.previewUrl;
+  });
   return next;
 }
 
@@ -169,7 +209,11 @@ function resolveLocalAsset(state, rowId, columnId, assetId, githubInput) {
   if (!asset || asset.sourceType !== "local") return state;
   const parsed = parseGitHubAsset(githubInput, asset.kind);
   if (!parsed.ok) return state;
-  Object.assign(asset, parsed.asset, { id: asset.id, name: asset.name });
+  Object.assign(asset, {
+    sourceType: "github",
+    exportValue: parsed.asset.exportValue,
+    githubUrl: parsed.asset.previewUrl
+  });
   return next;
 }
 
@@ -185,6 +229,9 @@ function serializeTable(state) {
       if (text) parts.push(text);
       cell.assets.forEach(asset => {
         if (asset.sourceType === "github" && asset.exportValue) parts.push(asset.exportValue);
+        if (asset.sourceType === "local") {
+          parts.push(`📎 Upload ke GitHub: ${escapeCellText(asset.name || "aset lokal")}`);
+        }
       });
       return parts.join("<br>");
     });
@@ -204,9 +251,11 @@ if (typeof module !== "undefined" && module.exports) {
     moveRow,
     escapeCellText,
     parseGitHubAsset,
+    extractGitHubAssets,
     serializeTable,
     countUnresolvedAssets,
     addAssetsToCell,
+    addGithubAssetsToCell,
     removeAssetFromCell,
     resolveLocalAsset
   };
@@ -255,11 +304,11 @@ if (typeof document !== "undefined") {
   }
 
   function localAssetsInCell(cell) {
-    return cell.assets.filter(asset => asset.sourceType === "local" && asset.previewUrl);
+    return cell.assets.filter(asset => /^blob:/i.test(asset.previewUrl || ""));
   }
 
   function revokeAsset(asset) {
-    if (asset && asset.sourceType === "local" && asset.previewUrl) {
+    if (asset && /^blob:/i.test(asset.previewUrl || "")) {
       URL.revokeObjectURL(asset.previewUrl);
     }
   }
@@ -368,10 +417,10 @@ if (typeof document !== "undefined") {
   function updateOutput() {
     const unresolved = countUnresolvedAssets(builderState);
     builderOutput.value = serializeTable(builderState);
-    copyBuilderBtn.disabled = unresolved > 0 || builderState.columns.length === 0;
+    copyBuilderBtn.disabled = builderState.columns.length === 0;
     validationSummary.classList.toggle("has-warning", unresolved > 0);
     validationSummary.textContent = unresolved
-      ? `${unresolved} aset lokal masih membutuhkan URL GitHub sebelum hasil dapat disalin.`
+      ? `${unresolved} aset lokal ditandai di draft. Upload file tersebut di komentar GitHub, lalu normalisasi kembali hasilnya.`
       : "Semua aset siap diekspor ke GitHub.";
   }
 
@@ -384,8 +433,9 @@ if (typeof document !== "undefined") {
       <article class="asset-card" data-asset-id="${asset.id}">
         <div class="asset-preview">
           ${asset.kind === "video"
-            ? `<video src="${escapeHtml(asset.previewUrl)}" muted></video>`
-            : `<img src="${escapeHtml(asset.previewUrl)}" alt="">`}
+            ? `<video data-role="asset-preview-media" src="${escapeHtml(asset.previewUrl)}" muted></video>`
+            : `<img data-role="asset-preview-media" src="${escapeHtml(asset.previewUrl)}" alt="">`}
+          <span class="asset-preview-fallback">Preview setelah GitHub dikirim</span>
         </div>
         <div class="asset-meta">
           <p class="asset-name" title="${escapeHtml(asset.name)}">${escapeHtml(asset.name)}</p>
@@ -548,40 +598,61 @@ if (typeof document !== "undefined") {
     }
   });
 
-  tableEditor.addEventListener("change", function (event) {
-    if (event.target.dataset.role !== "file-input") return;
-    const card = event.target.closest(".cell-card");
-    addLocalFiles(card.dataset.rowId, card.dataset.columnId, event.target.files, card);
-  });
-
   tableEditor.addEventListener("dragover", function (event) {
-    const zone = event.target.closest('[data-role="drop-zone"]');
-    if (!zone) return;
+    const card = event.target.closest(".cell-card");
+    if (!card) return;
     event.preventDefault();
-    zone.classList.add("is-dragging");
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    card.classList.add("is-dragging");
   });
 
   tableEditor.addEventListener("dragleave", function (event) {
-    const zone = event.target.closest('[data-role="drop-zone"]');
-    if (zone) zone.classList.remove("is-dragging");
+    const card = event.target.closest(".cell-card");
+    if (!card || card.contains(event.relatedTarget)) return;
+    card.classList.remove("is-dragging");
   });
 
   tableEditor.addEventListener("drop", function (event) {
-    const zone = event.target.closest('[data-role="drop-zone"]');
-    if (!zone) return;
+    const card = event.target.closest(".cell-card");
+    if (!card) return;
     event.preventDefault();
-    zone.classList.remove("is-dragging");
-    const card = zone.closest(".cell-card");
+    card.classList.remove("is-dragging");
     addLocalFiles(card.dataset.rowId, card.dataset.columnId, event.dataTransfer.files, card);
   });
 
   tableEditor.addEventListener("paste", function (event) {
     const card = event.target.closest(".cell-card");
     const files = event.clipboardData && event.clipboardData.files;
-    if (!card || !files || !files.length) return;
+    if (!card) return;
+    if (files && files.length) {
+      event.preventDefault();
+      addLocalFiles(card.dataset.rowId, card.dataset.columnId, files, card);
+      return;
+    }
+    if (event.target.dataset.role !== "cell-text" || !event.clipboardData) return;
+    const pastedText = event.clipboardData.getData("text/plain");
+    const extracted = extractGitHubAssets(pastedText);
+    if (!extracted.assets.length) return;
+
     event.preventDefault();
-    addLocalFiles(card.dataset.rowId, card.dataset.columnId, files, card);
+    const nextState = cloneState(builderState);
+    const row = nextState.rows.find(item => item.id === card.dataset.rowId);
+    const cell = row && row.cells[card.dataset.columnId];
+    if (!cell) return;
+    if (extracted.remainingText) {
+      const start = typeof event.target.selectionStart === "number" ? event.target.selectionStart : cell.text.length;
+      const end = typeof event.target.selectionEnd === "number" ? event.target.selectionEnd : start;
+      cell.text = `${cell.text.slice(0, start)}${extracted.remainingText}${cell.text.slice(end)}`;
+    }
+    applyBuilderState(addGithubAssetsToCell(nextState, card.dataset.rowId, card.dataset.columnId, extracted.assets));
+    builderStatus.textContent = `${extracted.assets.length} aset GitHub ditambahkan ke sel.`;
   });
+
+  tableEditor.addEventListener("error", function (event) {
+    if (event.target.dataset.role !== "asset-preview-media") return;
+    const preview = event.target.closest(".asset-preview");
+    if (preview) preview.classList.add("has-error");
+  }, true);
 
   copyBuilderBtn.addEventListener("click", async function () {
     if (copyBuilderBtn.disabled) return;

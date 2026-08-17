@@ -26,11 +26,9 @@
 
 .row-actions { display: flex; align-items: center; justify-content: center; padding: 6px; }
 .row-controls { flex-direction: column; margin: 0; }
-.cell-card { padding: 12px; }
+.cell-card { padding: 12px; transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease; }
+.cell-card.is-dragging { border-color: var(--green); background: #f0f8f3; box-shadow: 0 0 0 3px rgba(23, 100, 72, .16); }
 .cell-text { min-height: 92px; padding: 11px; border: 1px solid var(--line); border-radius: 9px; background: #fff; font-size: 13px; }
-.cell-drop { margin-top: 9px; padding: 13px; border: 1.5px dashed #a9bbb1; border-radius: 10px; color: var(--muted); background: #f7faf8; text-align: center; font-size: 12px; cursor: pointer; }
-.cell-drop.is-dragging { border-color: var(--green); color: var(--green); background: var(--mint); }
-.cell-drop strong { color: var(--green); }
 .resolve-input { min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
 .mini-button { padding: 8px 10px; border: 0; border-radius: 8px; color: white; background: var(--green); font-size: 11px; font-weight: 800; cursor: pointer; }
 .cell-error { min-height: 17px; margin: 6px 0 0; color: var(--red); font-size: 11px; }
@@ -39,6 +37,9 @@
 .asset-card { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 9px; align-items: start; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: #faf9f4; }
 .asset-preview { width: 64px; height: 54px; overflow: hidden; border-radius: 7px; background: #e8ebe8; }
 .asset-preview img, .asset-preview video { width: 100%; height: 100%; object-fit: cover; }
+.asset-preview-fallback { display: none; height: 100%; padding: 6px; color: var(--muted); font-size: 9px; font-weight: 750; line-height: 1.25; text-align: center; place-items: center; }
+.asset-preview.has-error img, .asset-preview.has-error video { display: none; }
+.asset-preview.has-error .asset-preview-fallback { display: grid; }
 .asset-meta { min-width: 0; }
 .asset-name { overflow: hidden; margin: 0 0 4px; color: var(--ink); font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .asset-badge { display: inline-block; padding: 3px 6px; border-radius: 20px; color: var(--green); background: var(--mint); font-size: 9px; font-weight: 850; text-transform: uppercase; }

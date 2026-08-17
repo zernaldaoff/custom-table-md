@@ -10,9 +10,11 @@ const {
   moveRow,
   escapeCellText,
   parseGitHubAsset,
+  extractGitHubAssets,
   serializeTable,
   countUnresolvedAssets,
   addAssetsToCell,
+  addGithubAssetsToCell,
   removeAssetFromCell,
   resolveLocalAsset
 } = require("../builder.js");
@@ -88,6 +90,31 @@ test("rejects non-GitHub attachment URLs", () => {
   assert.match(result.error, /GitHub attachment/i);
 });
 
+test("extracts pasted GitHub assets in order and preserves other text", () => {
+  const html = '<img width="433" height="577" alt="Image" src="https://github.com/user-attachments/assets/html-id" />';
+  const markdown = "![capture](https://github.com/user-attachments/assets/markdown-id)";
+  const video = "https://github.com/user-attachments/assets/video-id";
+  const result = extractGitHubAssets(`Before\n${html}\n${markdown}\n${video}\nAfter`);
+  assert.equal(result.assets.length, 3);
+  assert.deepEqual(result.assets.map(asset => asset.kind), ["image", "image", "video"]);
+  assert.deepEqual(result.assets.map(asset => asset.previewUrl), [
+    "https://github.com/user-attachments/assets/html-id",
+    "https://github.com/user-attachments/assets/markdown-id",
+    "https://github.com/user-attachments/assets/video-id"
+  ]);
+  assert.equal(result.remainingText, "Before\nAfter");
+  assert.equal(result.assets[0].exportValue, html);
+  assert.equal(result.assets[1].exportValue, markdown);
+  assert.equal(result.assets[2].exportValue, video);
+});
+
+test("leaves ordinary pasted text untouched", () => {
+  assert.deepEqual(extractGitHubAssets("ordinary text"), {
+    assets: [],
+    remainingText: "ordinary text"
+  });
+});
+
 test("serializes text and multiple ready assets in visual order", () => {
   const state = createInitialState(ids());
   const cell = state.rows[0].cells[state.columns[0].id];
@@ -108,6 +135,19 @@ test("counts unresolved local assets", () => {
   assert.equal(countUnresolvedAssets(state), 2);
 });
 
+test("serializes unresolved local assets as safe upload placeholders", () => {
+  const state = createInitialState(ids());
+  const cell = state.rows[0].cells[state.columns[0].id];
+  cell.assets.push({
+    sourceType: "local",
+    name: "before | after.png",
+    previewUrl: "blob:private-preview"
+  });
+  const output = serializeTable(state);
+  assert.ok(output.includes("📎 Upload ke GitHub: before \\| after.png"));
+  assert.ok(!output.includes("blob:private-preview"));
+});
+
 test("adds multiple assets to one cell and preserves their order", () => {
   const state = createInitialState(ids());
   const rowId = state.rows[0].id;
@@ -120,8 +160,29 @@ test("adds multiple assets to one cell and preserves their order", () => {
   assert.deepEqual(next.rows[0].cells[columnId].assets.map(asset => asset.id), ["asset-1", "asset-2", "asset-3"]);
   assert.equal(countUnresolvedAssets(next), 1);
   const output = serializeTable(next);
-  assert.ok(output.includes("![one](https://github.com/user-attachments/assets/one)<br>https://github.com/user-attachments/assets/three"));
+  assert.ok(output.includes("![one](https://github.com/user-attachments/assets/one)<br>📎 Upload ke GitHub: aset lokal<br>https://github.com/user-attachments/assets/three"));
   assert.ok(!output.includes("blob:two"));
+});
+
+test("pairs pasted GitHub assets with local files while preserving previews", () => {
+  let state = createInitialState(ids());
+  const rowId = state.rows[0].id;
+  const columnId = state.columns[0].id;
+  state = addAssetsToCell(state, rowId, columnId, [
+    { id: "local-1", kind: "image", sourceType: "local", name: "one.png", previewUrl: "blob:one" },
+    { id: "local-2", kind: "video", sourceType: "local", name: "two.mov", previewUrl: "blob:two" }
+  ]);
+  state = addGithubAssetsToCell(state, rowId, columnId, [
+    { id: "remote-1", kind: "image", sourceType: "github", previewUrl: "https://github.com/user-attachments/assets/one", exportValue: "![one](https://github.com/user-attachments/assets/one)" },
+    { id: "remote-2", kind: "video", sourceType: "github", previewUrl: "https://github.com/user-attachments/assets/two", exportValue: "https://github.com/user-attachments/assets/two" },
+    { id: "remote-3", kind: "image", sourceType: "github", previewUrl: "https://github.com/user-attachments/assets/three", exportValue: "![three](https://github.com/user-attachments/assets/three)" }
+  ]);
+  const assets = state.rows[0].cells[columnId].assets;
+  assert.equal(countUnresolvedAssets(state), 0);
+  assert.deepEqual(assets.map(asset => asset.id), ["local-1", "local-2", "remote-3"]);
+  assert.deepEqual(assets.map(asset => asset.previewUrl), ["blob:one", "blob:two", "https://github.com/user-attachments/assets/three"]);
+  assert.deepEqual(assets.map(asset => asset.name), ["one.png", "two.mov", undefined]);
+  assert.ok(serializeTable(state).includes("![one](https://github.com/user-attachments/assets/one)<br>https://github.com/user-attachments/assets/two<br>![three](https://github.com/user-attachments/assets/three)"));
 });
 
 test("resolves a local asset and removes an asset without changing siblings", () => {
@@ -135,6 +196,7 @@ test("resolves a local asset and removes an asset without changing siblings", ()
   state = resolveLocalAsset(state, rowId, columnId, "local-1", "![shot](https://github.com/user-attachments/assets/shot)");
   assert.equal(countUnresolvedAssets(state), 0);
   assert.equal(state.rows[0].cells[columnId].assets[0].sourceType, "github");
+  assert.equal(state.rows[0].cells[columnId].assets[0].previewUrl, "blob:shot");
   state = removeAssetFromCell(state, rowId, columnId, "local-1");
   assert.deepEqual(state.rows[0].cells[columnId].assets.map(asset => asset.id), ["ready-1"]);
 });

@@ -1,5 +1,50 @@
-function normalizeMarkdownTableRows(markdown, columns = 4) {
+const githubAssetPlaceholderPattern = /📎 Upload ke GitHub: [^\r\n]*?(?=<br>|\s+\|)/g;
+
+function standaloneGithubAttachment(line) {
+  const value = line.trim();
+  const imageMarkdown = /^!\[[^\]\r\n]*\]\(https:\/\/github\.com\/user-attachments\/assets\/[^)\s]+\)$/i;
+  const imageHtml = /^<img\b[^>]*\bsrc=["']https:\/\/github\.com\/user-attachments\/assets\/[^"']+["'][^>]*\/?>$/i;
+  const bareAttachment = /^https:\/\/github\.com\/user-attachments\/assets\/\S+$/i;
+  return imageMarkdown.test(value) || imageHtml.test(value) || bareAttachment.test(value)
+    ? value
+    : "";
+}
+
+function resolveGithubAssetPlaceholders(markdown) {
   const lines = markdown.split(/\r\n|\n|\r/);
+  const placeholderCount = (markdown.match(githubAssetPlaceholderPattern) || []).length;
+  const candidates = [];
+
+  lines.forEach((line, index) => {
+    if (line.trimStart().startsWith("|")) return;
+    const attachment = standaloneGithubAttachment(line);
+    if (attachment) candidates.push({ index, attachment });
+  });
+
+  const consumed = candidates.slice(0, placeholderCount);
+  const consumedLines = new Set(consumed.map(candidate => candidate.index));
+  let attachmentIndex = 0;
+  const draft = lines
+    .filter((line, index) => !consumedLines.has(index))
+    .join("\n");
+  const resolvedMarkdown = draft.replace(githubAssetPlaceholderPattern, function (placeholder) {
+    const candidate = consumed[attachmentIndex];
+    if (!candidate) return placeholder;
+    const attachment = candidate.attachment;
+    attachmentIndex += 1;
+    return attachment;
+  });
+
+  return {
+    markdown: resolvedMarkdown,
+    resolved: consumed.length,
+    remaining: placeholderCount - consumed.length
+  };
+}
+
+function normalizeMarkdownTableRows(markdown, columns = 4) {
+  const resolvedMarkdown = resolveGithubAssetPlaceholders(markdown).markdown;
+  const lines = resolvedMarkdown.split(/\r\n|\n|\r/);
   const result = [];
   let buffer = [];
 
@@ -52,7 +97,7 @@ function normalizeMarkdownTableRows(markdown, columns = 4) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { normalizeMarkdownTableRows };
+  module.exports = { normalizeMarkdownTableRows, resolveGithubAssetPlaceholders };
 }
 
 if (typeof document !== "undefined") {
@@ -231,11 +276,17 @@ if (typeof document !== "undefined") {
 
     window.setTimeout(function () {
       try {
+        const resolution = resolveGithubAssetPlaceholders(inputEl.value);
         outputEl.value = normalizeMarkdownTableRows(inputEl.value, columns);
         copyBtn.disabled = outputEl.value.length === 0;
         normalizerHistory.commit(captureNormalizerState());
         closeModal();
-        showStatus(`Tabel berhasil dinormalisasi untuk ${columns} kolom.`);
+        const assetStatus = resolution.resolved
+          ? ` ${resolution.resolved} aset GitHub dipasangkan.${resolution.remaining ? ` ${resolution.remaining} placeholder masih belum memiliki URL.` : ""}`
+          : resolution.remaining
+            ? ` ${resolution.remaining} placeholder masih menunggu attachment GitHub.`
+            : "";
+        showStatus(`Tabel berhasil dinormalisasi untuk ${columns} kolom.${assetStatus}`);
       } catch (error) {
         closeModal(false);
         showError(error && error.message ? error.message : "Markdown gagal diproses.");
